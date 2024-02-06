@@ -22,6 +22,10 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
+  const signer = await hre.ethers.getSigner(deployer);
+  const deposit = "0.1";
+  const amount = hre.ethers.parseEther(deposit);
+
   await deploy("BatchRegistry", {
     from: deployer,
     // Contract constructor arguments
@@ -34,7 +38,12 @@ const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEn
 
   // Get the deployed contract to interact with it after deploying.
   const batchRegistry = await hre.ethers.getContract<Contract>("BatchRegistry", deployer);
-  console.log("BatchRegistry deployed to:", await batchRegistry.getAddress());
+  const batchRegistryAddress = await batchRegistry.getAddress();
+  console.log("BatchRegistry deployed to:", batchRegistryAddress);
+
+  const tx = await signer.sendTransaction({ value: amount, to: batchRegistryAddress });
+  await tx.wait();
+  console.log(`${deposit} eth deposited to BatchRegistry on tx: `, tx.hash);
 };
 
 export default deployYourContract;
