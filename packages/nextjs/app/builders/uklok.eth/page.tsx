@@ -1,17 +1,52 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { SocialIcon } from "react-social-icons";
-import useSWR from "swr";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 import { Address } from "~~/components/scaffold-eth";
+import { getProfile, mapEnsRecordsToProfile } from "~~/utils/ens/profile";
+import { Profile, ProfileMap } from "~~/utils/ens/profile/types";
 
-// @ts-ignore
-const fetcher = (...args: any[]) => fetch(...args).then(res => res.json());
+const ADDRESS = "0xdb253953AeD478908635De50CC49C35619bcE04E";
+const PROJECT_PATTERN = `eth.uklok`;
+const RecordMap: ProfileMap = {
+  "eth.uklok.bio": "bio",
+  [PROJECT_PATTERN]: {
+    target: "portfolio",
+    parse: JSON.parse,
+  },
+};
+
+interface UserProfileProps extends Profile {
+  bio: string;
+  loadedAt?: number;
+}
+
+const ONE_DAY = 1000 * 60 * 60 * 24;
+const loadCache = (): UserProfileProps => JSON.parse(localStorage.getItem(PROJECT_PATTERN) || "{}");
+const saveCache = (profile: UserProfileProps) => {
+  profile.loadedAt = Date.now();
+  localStorage.setItem(PROJECT_PATTERN, JSON.stringify(profile));
+};
 
 const Layout: React.FC = () => {
-  const { data: profile, error, isLoading } = useSWR<UserProfileProps>("/api/uklok/profile", fetcher);
+  const [profile, setProfile] = useState(loadCache());
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (profile.loadedAt && profile.loadedAt > Date.now() - ONE_DAY) return setIsLoading(false);
+
+    getProfile({ address: ADDRESS })
+      .then(ensRecords => {
+        const _profile = mapEnsRecordsToProfile(ensRecords, ADDRESS, PROJECT_PATTERN, RecordMap) as UserProfileProps;
+        setProfile(_profile);
+        setIsLoading(false);
+        saveCache(_profile);
+      })
+      .catch(() => setError(true));
+  }, []);
 
   return (
     <>
@@ -24,7 +59,7 @@ const Layout: React.FC = () => {
             ) : (
               <>
                 <UserHeader profile={profile} />
-                <UserLinks loaded={!isLoading} />
+                <UserLinks profile={profile} />
               </>
             )}
           </div>
@@ -36,17 +71,8 @@ const Layout: React.FC = () => {
   );
 };
 
-type UserProfileProps = {
-  bio: string;
-  avatar: string;
-  slogan: string;
-  address: string;
-  links: PlatformLink[];
-  portfolio: Project[];
-  loadedAt?: number;
-};
 function UserHeader({ profile }: { profile: UserProfileProps }) {
-  const { avatar, slogan, address } = profile;
+  const { name, avatar, description, address } = profile;
 
   return (
     <>
@@ -63,13 +89,22 @@ function UserHeader({ profile }: { profile: UserProfileProps }) {
 
       <div className="mockup-code my-8">
         <pre data-prefix="$">
-          <code>npm i @uklok/team</code>
+          <code>npm i @uklok/team --member {name}</code>
         </pre>
         <pre data-prefix=">" className="text-warning">
           <code>installing...</code>
         </pre>
-        <pre data-prefix=">" className="text-info">
-          <code>{slogan}</code>
+        <pre data-prefix=">" className="text-amber-500">
+          <code>Recruiting `{name}`...</code>
+        </pre>
+        <pre data-prefix=">" className="text-amber-500">
+          <code>👻 is now part of the crew!</code>
+        </pre>
+        <pre data-prefix=">" className="text-cyan-500">
+          <code>{description}</code>
+        </pre>
+        <pre data-prefix=">" className="text-amber-500">
+          <code>Suite your seat belts and enjoy the trip 🚀</code>
         </pre>
         <pre data-prefix=">" className="text-success">
           <code>Done!</code>
@@ -83,54 +118,34 @@ function UserHeader({ profile }: { profile: UserProfileProps }) {
   );
 }
 
-type PlatformLink = {
-  name: string;
-  description: string;
-  url: string;
-  network: string;
-};
-function UserLinks({ loaded }: { loaded: boolean }) {
-  const { data, error, isLoading } = useSWR<PlatformLink[]>("/api/uklok/links", fetcher);
+function UserLinks({ profile }: { profile: UserProfileProps }) {
+  if (!profile) return;
 
-  if (error) return;
-
-  const links = data || [];
+  const { links } = profile;
   return (
-    loaded && (
+    links && (
       <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-        {isLoading ? (
-          <span className="loading loading-dots loading-md"></span>
-        ) : (
-          links.map(({ description, url, network }, index) => (
-            <div
-              key={index}
-              className="px-4 py-4 max-w-xs rounded-3xl tooltip tooltip-primary tooltip-bottom"
-              data-tip={description}
-            >
-              <SocialIcon network={network} href={url}></SocialIcon>
-            </div>
-          ))
-        )}
+        {links.map(({ description, url, network }, index) => (
+          <div
+            key={index}
+            className="px-4 py-4 max-w-xs rounded-3xl tooltip tooltip-primary tooltip-bottom"
+            data-tip={description}
+          >
+            <SocialIcon network={network} href={url}></SocialIcon>
+          </div>
+        ))}
       </div>
     )
   );
 }
 
-type Project = {
-  title: string;
-  description: string;
-  image: string;
-  link: string;
-};
 function UserPortfolio({ loaded, profile }: { loaded: boolean; profile?: UserProfileProps }) {
-  const { data, error, isLoading } = useSWR<Project[]>("/api/uklok/projects", fetcher);
+  if (!profile) return;
 
-  if (error || !profile) return;
-
-  const portfolio = data || [];
+  const { portfolio } = profile;
   return (
     loaded &&
-    !isLoading && (
+    portfolio.length && (
       <div className="flex items-center flex-col flex-grow pt-10">
         <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
           <h1 className="text-center font-extrabold text-xl">Portfolio</h1>
