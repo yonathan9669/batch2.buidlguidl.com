@@ -14,6 +14,7 @@
     "vercel:yolo": "vercel --build-env NEXT_PUBLIC_IGNORE_BUILD_ERROR=true"
   },
   "dependencies": {
+    "@ensdomains/ensjs": "^3.4.3",
     "@ethersproject/providers": "^5.7.2",
     "@heroicons/react": "^2.0.11",
     "@rainbow-me/rainbowkit": "1.3.0",
@@ -28,6 +29,8 @@
     "react-copy-to-clipboard": "^5.1.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.0",
+    "react-social-icons": "^6.10.0",
+    "swr": "^2.2.4",
     "use-debounce": "^8.0.4",
     "usehooks-ts": "^2.7.2",
     "viem": "1.19.9",
